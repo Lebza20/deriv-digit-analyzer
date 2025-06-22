@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Live Deriv Digit Analyzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6 text-gray-800">
+
+  <div class="max-w-4xl mx-auto bg-white shadow-md rounded-xl p-6 space-y-6">
+    <h1 class="text-2xl font-bold text-center text-blue-700">🔴 Live Deriv Digit Analyzer</h1>
+
+    <div class="space-y-4">
+      <label class="block font-semibold">Select Symbol:</label>
+      <select id="symbol" class="w-full p-2 border rounded-md">
+        <option value="R_100">R_100</option>
+        <option value="R_50">R_50</option>
+        <option value="R_25">R_25</option>
+        <option value="R_10">R_10</option>
+      </select>
+      <button onclick="startStreaming()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Start Stream</button>
+    </div>
+
+    <div class="text-center mt-4 text-sm text-gray-500" id="status">Status: Idle</div>
+
+    <div id="liveDigit" class="text-center text-5xl font-bold text-indigo-700 mt-4">-</div>
+
+    <div id="results" class="space-y-6 mt-6"></div>
+  </div>
+
+  <script>
+    let socket;
+    let freq = Array(10).fill(0);
+    let even = 0, odd = 0;
+    let matchStreak = 1, differStreak = 1;
+    let prevDigit = null;
+    let maxMatch = 0, maxDiffer = 0;
+
+    function startStreaming() {
+      const symbol = document.getElementById("symbol").value;
+      document.getElementById("status").textContent = "Status: Connecting...";
+
+      if (socket) socket.close();
+
+      socket = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+
+      socket.onopen = () => {
+        document.getElementById("status").textContent = `Status: Connected to ${symbol}`;
+        socket.send(JSON.stringify({ ticks: symbol }));
+      };
+
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.tick) {
+          const tick = data.tick;
+          const price = tick.quote;
+          const digit = parseInt(price.toString().slice(-1));
+          updateAnalysis(digit);
+        }
+      };
+
+      socket.onerror = () => {
+        document.getElementById("status").textContent = "Status: Error - check connection.";
+      };
+    }
+
+    function updateAnalysis(digit) {
+      freq[digit]++;
+      if (digit % 2 === 0) even++; else odd++;
+
+      if (prevDigit !== null) {
+        if (digit === prevDigit) {
+          matchStreak++;
+          differStreak = 1;
+        } else {
+          differStreak++;
+          matchStreak = 1;
+        }
+        maxMatch = Math.max(maxMatch, matchStreak);
+        maxDiffer = Math.max(maxDiffer, differStreak);
+      }
+      prevDigit = digit;
+
+      document.getElementById("liveDigit").textContent = digit;
+      renderStats();
+    }
+
+    function renderStats() {
+      let output = `<div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">`;
+      for (let i = 0; i <= 9; i++) {
+        output += `
+          <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <div class="text-lg font-semibold text-blue-800">Digit ${i}</div>
+            <div class="text-sm">Frequency: <span class="font-bold">${freq[i]}</span></div>
+          </div>`;
+      }
+      output += `</div>`;
+
+      output += `
+        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-300 rounded-lg space-y-2">
+          <div><strong>Even:</strong> ${even} | <strong>Odd:</strong> ${odd}</div>
+          <div><strong>Max Match Streak:</strong> ${maxMatch}</div>
+          <div><strong>Max Differ Streak:</strong> ${maxDiffer}</div>
+        </div>
+
+        <div class="mt-4 p-4 bg-green-50 border border-green-300 rounded-lg">
+          <h2 class="text-lg font-semibold text-green-800 mb-2">Live Insights</h2>
+          <ul class="list-disc pl-5 space-y-1 text-sm">
+            <li>Current Match Streak: ${matchStreak}</li>
+            <li>Current Differ Streak: ${differStreak}</li>
+            <li>If Match ≥ 3 → 'Differ' setup likely</li>
+            <li>If Differ ≥ 4 → 'Match' setup likely</li>
+          </ul>
+        </div>`;
+
+      document.getElementById("results").innerHTML = output;
+    }
+  </script>
+
+</body>
+</html>
