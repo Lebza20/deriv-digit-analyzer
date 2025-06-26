@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Digit Match/Differ Analyzer</title>
+  <style>
+    body {
+      background-color: #0b0b3d;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    .box {
+      border: 2px solid magenta;
+      padding: 20px;
+      margin: 50px auto;
+      width: 350px;
+      border-radius: 12px;
+      background: #1a1a50;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      margin: 10px;
+      border: none;
+      color: white;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+
+    .green { background-color: green; }
+    .red { background-color: red; }
+    .brown { background-color: brown; }
+
+    input {
+      padding: 5px;
+      width: 60px;
+      text-align: center;
+    }
+
+    select {
+      padding: 5px;
+      width: 120px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Digit Match/Differ Analyzer</h2>
+  <div class="box">
+    <h3 style="color: cyan;">Volatility 10 (1s)</h3>
+    <div>
+      <label style="font-weight:bold;">Mode:</label>
+      <select id="mode">
+        <option value="match">Match</option>
+        <option value="differ">Differ</option>
+      </select>
+    </div>
+
+    <p>Current Digit: <span id="currentDigit" style="font-size: 24px; color: red;">-</span></p>
+
+    <div>
+      <label>Starting Prediction:</label>
+      <input id="startPred" type="number" value="6">
+    </div>
+    <div>
+      <label>Recovery Prediction:</label>
+      <input id="recoverPred" type="number" value="3">
+    </div>
+
+    <button class="btn green" onclick="startAnalysis()">FIND ENTRY POINT</button>
+    <button class="btn red" onclick="stopAnalysis()">STOP</button>
+
+    <div id="status" style="margin-top: 20px; color: yellow;">Waiting to start...</div>
+  </div>
+
+  <script>
+    let running = false;
+    let streak = 0;
+    let lastDigit = null;
+
+    function getRandomDigit() {
+      return Math.floor(Math.random() * 10);
+    }
+
+    function startAnalysis() {
+      const mode = document.getElementById("mode").value;
+      const startPred = parseInt(document.getElementById("startPred").value);
+      const recoverPred = parseInt(document.getElementById("recoverPred").value);
+      running = true;
+
+      document.getElementById("status").textContent = "Analyzing...";
+
+      const interval = setInterval(() => {
+        if (!running) {
+          clearInterval(interval);
+          return;
+        }
+
+        const digit = getRandomDigit();
+        document.getElementById("currentDigit").textContent = digit;
+
+        let isMatch = (digit === lastDigit);
+        let condition = (mode === "match") ? isMatch : !isMatch;
+
+        if (lastDigit !== null) {
+          if (condition) {
+            streak++;
+          } else {
+            streak = 0;
+          }
+        }
+
+        lastDigit = digit;
+
+        let entrySignal = (streak >= startPred) ? "📍 Entry Opportunity!" :
+                          (streak >= recoverPred) ? "Recovery Mode..." : "Analyzing...";
+
+        document.getElementById("status").textContent = `Mode: ${mode.toUpperCase()} | Streak: ${streak} | ${entrySignal}`;
+      }, 1000); // Simulate tick every 1 second
+    }
+
+    function stopAnalysis() {
+      running = false;
+      document.getElementById("status").textContent = "Stopped.";
+    }
+  </script>
+</body>
+</html>
